@@ -279,7 +279,7 @@ void MIDI_Parse(const char *filename, MIDI_EventList_t *list, int *pulsePerQuart
     }
 
     ReadBIG32(f); // skip header size
-    uint16_t format=ReadBIG16(f);
+    uint16_t format=ReadBIG16(f); // unused
     uint16_t numTracks=ReadBIG16(f);
     uint16_t pulsePerQuarterNote=ReadBIG16(f);
     *pulsePerQuarterNoteOut=pulsePerQuarterNote;
