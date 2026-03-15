@@ -196,9 +196,13 @@ Voice_t voices[MAX_VOICES];
 // Utilities
 float RandomNoise(float *state)
 {
-	*state=fmodf(*state*1.7f+1.3f, 1.0f);
+    uint32_t u=0;
 
-	return *state*2.0f-1.0f;
+	memcpy(&u, state, 4);
+    u=u*1664525u+1013904223u;
+    memcpy(state, &u, 4);
+
+	return (int32_t)u/2147483648.0f;
 }
 
 static float NoteToFreq(int note)
@@ -262,6 +266,16 @@ void MIDI_NoteOn(int channel, int note, int velocity)
 			case 47:	v->drumFreq=131.0f;	break;	// low-mid tom
 			case 48:	v->drumFreq=147.0f;	break;	// hi-mid tom
 			case 50:	v->drumFreq=175.0f;	break;	// high tom
+			case 42:
+			case 44:
+			case 46:	v->drumFreq=800.0f;	break; // hi-hats
+			case 49:
+			case 51:
+			case 52:
+			case 53:
+			case 55:
+			case 57:
+			case 59:	v->drumFreq=600.0f;	break; // cymbals
 			default:	v->drumFreq=200.0f;	break;
 		}
 
@@ -328,7 +342,9 @@ void mix_audio(void *userdata, Uint8 *stream, int len)
 						drumPatch.modIndex=3.0f;
 						drumPatch.modRatio2=0.0f;
 						drumPatch.modIndex2=0.0f;
+						drumPatch.ampScale=0.9f;
 						break;
+
 					case 38:
 					case 40: // snare/electric snare
 						drumPatch.attack=0.001f;
@@ -339,39 +355,47 @@ void mix_audio(void *userdata, Uint8 *stream, int len)
 						drumPatch.modIndex=0.5f;
 						drumPatch.modRatio2=0.0f;
 						drumPatch.modIndex2=0.0f;
+						drumPatch.ampScale=0.9f;
 						break;
+
 					case 42: // closed hi-hat
 						drumPatch.attack=0.001f;
 						drumPatch.decay=0.04f;
 						drumPatch.sustain=0.0f;
 						drumPatch.release=0.02f;
-						drumPatch.modRatio=6.0f;
-						drumPatch.modIndex=1.5f;
-						drumPatch.modRatio2=0.0f;
-						drumPatch.modIndex2=0.0f;
+						drumPatch.modRatio=4.17f;
+						drumPatch.modIndex=1.0f;
+						drumPatch.modRatio2=6.91f;
+						drumPatch.modIndex2=0.6f;
+						drumPatch.ampScale=0.9f;
 						break;
-					case 44: // pedal hi-hat
-						drumPatch.attack=0.001f;
-						drumPatch.decay=0.06f;
-						drumPatch.sustain=0.0f;
-						drumPatch.release=0.03f;
-						drumPatch.modRatio=6.0f;
-						drumPatch.modIndex=1.5f;
-						drumPatch.modRatio2=0.0f;
-						drumPatch.modIndex2=0.0f;
-						break;
-					case 46: // open hi-hat
-						drumPatch.attack=0.001f;
-						drumPatch.decay=0.30f;
-						drumPatch.sustain=0.05f;
-						drumPatch.release=0.15f;
-						drumPatch.modRatio=6.0f;
-						drumPatch.modIndex=1.5f;
-						drumPatch.modRatio2=0.0f;
-						drumPatch.modIndex2=0.0f;
-						break;
+
+				    case 44: // pedal hi-hat
+					    drumPatch.attack=0.001f;
+					    drumPatch.decay=0.06f;
+					    drumPatch.sustain=0.0f;
+					    drumPatch.release=0.03f;
+					    drumPatch.modRatio=4.17f;
+					    drumPatch.modIndex=1.0f;
+					    drumPatch.modRatio2=6.91f;
+					    drumPatch.modIndex2=0.6f;
+					    drumPatch.ampScale=0.9f;
+					    break;
+
+				    case 46: // open hi-hat
+					    drumPatch.attack=0.001f;
+					    drumPatch.decay=0.30f;
+					    drumPatch.sustain=0.05f;
+					    drumPatch.release=0.15f;
+					    drumPatch.modRatio=4.17f;
+					    drumPatch.modIndex=1.0f;
+					    drumPatch.modRatio2=6.91f;
+					    drumPatch.modIndex2=0.6f;
+					    drumPatch.ampScale=0.9f;
+					    break;
+
 					case 39: // clap
-						drumPatch.attack=0.001f;
+					    drumPatch.attack=0.001f;
 						drumPatch.decay=0.10f;
 						drumPatch.sustain=0.0f;
 						drumPatch.release=0.06f;
@@ -379,21 +403,28 @@ void mix_audio(void *userdata, Uint8 *stream, int len)
 						drumPatch.modIndex=0.0f;
 						drumPatch.modRatio2=0.0f;
 						drumPatch.modIndex2=0.0f;
+						drumPatch.ampScale=0.9f;
 						break;
+
 					case 49:
 					case 51:
+					case 52:
+					case 53:
 					case 55:
-					case 57: // crash/ride
-						drumPatch.attack=0.001f;
-						drumPatch.decay=0.8f;
-						drumPatch.sustain=0.1f;
-						drumPatch.release=1.0f;
-						drumPatch.modRatio=7.0f;
-						drumPatch.modIndex=2.0f;
-						drumPatch.modRatio2=0.0f;
-						drumPatch.modIndex2=0.0f;
-						break;
-					case 41:
+					case 57:
+					case 59: // crash/ride
+					    drumPatch.attack=0.001f;
+					    drumPatch.decay=0.8f;
+					    drumPatch.sustain=0.1f;
+					    drumPatch.release=1.0f;
+					    drumPatch.modRatio=3.47f;
+					    drumPatch.modIndex=1.5f;
+					    drumPatch.modRatio2=5.83f;
+					    drumPatch.modIndex2=0.8f;
+					    drumPatch.ampScale=0.9f;
+					    break;
+
+				    case 41:
 					case 43:
 					case 45:
 					case 47:
@@ -407,7 +438,9 @@ void mix_audio(void *userdata, Uint8 *stream, int len)
 						drumPatch.modIndex=2.0f;
 						drumPatch.modRatio2=0.0f;
 						drumPatch.modIndex2=0.0f;
+						drumPatch.ampScale=0.9f;
 						break;
+
 					default:
 						drumPatch.attack=0.001f;
 						drumPatch.decay=0.3f;
@@ -417,6 +450,7 @@ void mix_audio(void *userdata, Uint8 *stream, int len)
 						drumPatch.modIndex=1.0f;
 						drumPatch.modRatio2=0.0f;
 						drumPatch.modIndex2=0.0f;
+						drumPatch.ampScale=0.9f;
 						break;
 				}
 
@@ -454,14 +488,11 @@ void mix_audio(void *userdata, Uint8 *stream, int len)
 			float channelAmp=ch->volume*ch->expression*patch->ampScale;
 			float amplitude=v->velocity*v->envelopeValue*channelAmp*0.18f;
 
-			// --- synthesis ---
+			// synthesis
 			float tone=0.0f;
 
 			if(v->channel==9)
 			{
-				// Advance the dedicated pitch envelope — fast exponential drop,
-				// completely independent of the amplitude ADSR.
-				// Kick drops in ~60ms, toms in ~120ms.
 				float freq=v->drumFreq;
 
 				switch(v->note)
@@ -500,42 +531,45 @@ void mix_audio(void *userdata, Uint8 *stream, int len)
 						break;
 					}
 
-					case 42:
-					case 44:
-					{
+				    case 42:
+				    case 44:
+				    {
 						// Closed hi-hat
-						v->phase+=TWO_PI*freq*patch->modRatio*dt;
-						v->modPhase+=TWO_PI*freq*patch->modRatio*1.4f*dt;
+					    v->phase+=TWO_PI*freq*patch->modRatio*dt;
+					    v->modPhase+=TWO_PI*freq*patch->modRatio2*dt;
 
-						tone=(RandomNoise(&v->noiseState)*0.6f+sinf(v->phase+(sinf(v->modPhase)*patch->modIndex))*0.4f)*powf(v->envelopeValue, 2.5f);
-						break;
-					}
+						tone=(RandomNoise(&v->noiseState)*0.8f+(sinf(v->phase)*patch->modIndex+sinf(v->modPhase)*patch->modIndex2)*0.2f)*powf(v->envelopeValue, 2.0f);
+					    break;
+				    }
 
 					case 46:
-					{
+				    {
 						// Open hi-hat
-						v->phase+=TWO_PI*freq*patch->modRatio*dt;
-						v->modPhase+=TWO_PI*freq*patch->modRatio*1.4f*dt;
+					    v->phase+=TWO_PI*freq*patch->modRatio*dt;
+					    v->modPhase+=TWO_PI*freq*patch->modRatio2*dt;
 
-						tone=(RandomNoise(&v->noiseState)*0.6f+sinf(v->phase+(sinf(v->modPhase)*patch->modIndex))*0.4f)*v->envelopeValue;
-						break;
-					}
+					    tone=(RandomNoise(&v->noiseState)*0.8f+(sinf(v->phase)*patch->modIndex+sinf(v->modPhase)*patch->modIndex2)*0.2f)*v->envelopeValue;
+					    break;
+				    }
 
 					case 49:
-					case 51:
-					case 55:
-					case 57:
-					{
-						// Crash/ride
-						v->phase+=TWO_PI*freq*patch->modRatio*dt;
-						v->modPhase+=TWO_PI*freq*patch->modRatio*1.41f*dt;
+				    case 51:
+				    case 52:
+				    case 53:
+				    case 55:
+				    case 57:
+				    case 59:
+				    {
+					    // Crash/ride
+					    v->phase+=TWO_PI*freq*patch->modRatio*dt;
+					    v->modPhase+=TWO_PI*freq*patch->modRatio2*dt;
 
-						tone=(sinf(v->phase+(sinf(v->modPhase)*patch->modIndex))*0.5f+RandomNoise(&v->noiseState)*0.5f)*v->envelopeValue;
-						break;
-					}
+					    tone=(RandomNoise(&v->noiseState)*0.8f+(sinf(v->phase)*patch->modIndex+sinf(v->modPhase)*patch->modIndex2)*0.2f)*v->envelopeValue;
+					    break;
+				    }
 
 					default:
-					{
+				    {
 						// Toms
 						v->drumPitchEnv*=powf(0.0001f, dt/0.120f);
 
@@ -929,7 +963,7 @@ int main(int argc, char **argv)
 			int ch=e->channel;
 
 			if(type==0x90&&e->data2>0)
-				MIDI_NoteOn(ch, e->data1, e->data2);
+ 				MIDI_NoteOn(ch, e->data1, e->data2);
 			else if(type==0x80||(type==0x90&&e->data2==0))
 				MIDI_NoteOff(ch, e->data1);
 			else if(type==0xC0)
