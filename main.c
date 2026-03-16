@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define WRITE_WAVE_FILE 0
+
 #define SAMPLE_RATE 44100
 #define MAX_VOICES 128
 #define PI 3.14159265359f
@@ -258,24 +260,42 @@ void MIDI_NoteOn(int channel, int note, int velocity)
 	{
 		switch(note)
 		{
+			// kick
 			case 35:
-			case 36:	v->drumFreq=55.0f;	break;	// kick
-			case 41:	v->drumFreq=82.0f;	break;	// low floor tom
-			case 43:	v->drumFreq=98.0f;	break;	// high floor tom
-			case 45:	v->drumFreq=110.0f;	break;	// low tom
-			case 47:	v->drumFreq=131.0f;	break;	// low-mid tom
-			case 48:	v->drumFreq=147.0f;	break;	// hi-mid tom
-			case 50:	v->drumFreq=175.0f;	break;	// high tom
+			case 36:	v->drumFreq=55.0f;	break;
+
+			// low floor tom
+			case 41:	v->drumFreq=82.0f;	break;
+
+			// high floor tom
+			case 43:	v->drumFreq=98.0f;	break;
+
+			// low tom
+			case 45:	v->drumFreq=110.0f;	break;
+
+			// low-mid tom
+			case 47:	v->drumFreq=131.0f;	break;
+
+			// hi-mid tom
+			case 48:	v->drumFreq=147.0f;	break;
+
+			// high tom
+			case 50:	v->drumFreq=175.0f;	break;
+
+			// hi-hats
 			case 42:
 			case 44:
-			case 46:	v->drumFreq=800.0f;	break; // hi-hats
+			case 46:	v->drumFreq=800.0f;	break;
+
+			// cymbals
 			case 49:
 			case 51:
 			case 52:
 			case 53:
 			case 55:
 			case 57:
-			case 59:	v->drumFreq=600.0f;	break; // cymbals
+			case 59:	v->drumFreq=600.0f;	break;
+
 			default:	v->drumFreq=200.0f;	break;
 		}
 
@@ -625,7 +645,6 @@ void mix_audio(void *userdata, Uint8 *stream, int len)
 static uint32_t ReadBIG32(FILE *f)
 {
 	uint8_t b[4];
-
 	fread(b, 1, 4, f);
 
 	return ((uint32_t)b[0]<<24)|((uint32_t)b[1]<<16)|((uint32_t)b[2]<<8)|b[3];
@@ -634,7 +653,6 @@ static uint32_t ReadBIG32(FILE *f)
 static uint16_t ReadBIG16(FILE *f)
 {
 	uint8_t b[2];
-
 	fread(b, 1, 2, f);
 
 	return (uint16_t)((b[0]<<8)|b[1]);
@@ -881,6 +899,36 @@ void MIDI_Parse(const char *filename, MIDI_EventList_t *list, int *ppqOut, Tempo
 
 static bool quit=false;
 
+#if WRITE_WAVE_FILE
+#define BUFFER_SAMPLES 512
+
+void WriteWAVHeader(FILE *f, int sampleRate, int channels, int totalSamples)
+{
+    int dataSize    = totalSamples * channels * sizeof(float);
+    int chunkSize   = 36 + dataSize;
+    int byteRate    = sampleRate * channels * sizeof(float);
+    int blockAlign  = channels * sizeof(float);
+    uint16_t audioFormat = 3; // IEEE float
+    uint16_t numChannels = channels;
+    uint16_t bitsPerSample = 32;
+
+    fwrite("RIFF", 1, 4, f);
+    fwrite(&chunkSize,     4, 1, f);
+    fwrite("WAVE", 1, 4, f);
+    fwrite("fmt ", 1, 4, f);
+    int fmtSize = 16;
+    fwrite(&fmtSize,       4, 1, f);
+    fwrite(&audioFormat,   2, 1, f);
+    fwrite(&numChannels,   2, 1, f);
+    fwrite(&sampleRate,    4, 1, f);
+    fwrite(&byteRate,      4, 1, f);
+    fwrite(&blockAlign,    2, 1, f);
+    fwrite(&bitsPerSample, 2, 1, f);
+    fwrite("data", 1, 4, f);
+    fwrite(&dataSize,      4, 1, f);
+}
+#endif
+
 int main(int argc, char **argv)
 {
 	if(argc<2)
@@ -905,6 +953,7 @@ int main(int argc, char **argv)
 
 	MIDI_Parse(argv[1], &list, &ppq, &tempos);
 
+#if !WRITE_WAVE_FILE
 	SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO);
 
 	SDL_Window *window = SDL_CreateWindow("MIDI Player - Esc to stop", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 320, 60, 0);
@@ -920,6 +969,18 @@ int main(int argc, char **argv)
 
 	SDL_OpenAudio(&spec, NULL);
 	SDL_PauseAudio(0);
+#else
+	char outFilename[256];
+	snprintf(outFilename, sizeof(outFilename), "%s.wav", argv[1]);
+	FILE *outFile = fopen(outFilename, "wb");
+
+	// Write placeholder header — we'll rewrite it at the end
+	// once we know the total sample count
+	WriteWAVHeader(outFile, SAMPLE_RATE, 2, 0);
+
+	float buffer[BUFFER_SAMPLES * 2];
+	int totalSamples = 0;
+#endif
 
 	size_t position=0;
 	size_t tempoIdx=0;
@@ -1007,6 +1068,12 @@ int main(int argc, char **argv)
 			}
 		}
 
+#if WRITE_WAVE_FILE
+		// render a chunk
+		mix_audio(NULL, (Uint8 *)buffer, sizeof(buffer));
+		fwrite(buffer, sizeof(float), BUFFER_SAMPLES * 2, outFile);
+		totalSamples += BUFFER_SAMPLES;
+#else
 		SDL_Event event;
 
 		while(SDL_PollEvent(&event))
@@ -1022,17 +1089,34 @@ int main(int argc, char **argv)
 		}
 
 		SDL_Delay(1);
+#endif
 	}
 
-	free(tempos.events);
-	free(list.events);
+#if WRITE_WAVE_FILE
+	int tailSamples = SAMPLE_RATE * 2;
+	while(tailSamples > 0)
+	{
+		mix_audio(NULL, (Uint8 *)buffer, sizeof(buffer));
+		fwrite(buffer, sizeof(float), BUFFER_SAMPLES * 2, outFile);
+		totalSamples += BUFFER_SAMPLES;
+		globalTime   += (double)BUFFER_SAMPLES / SAMPLE_RATE;
+		tailSamples  -= BUFFER_SAMPLES;
+	}
 
+	rewind(outFile);
+	WriteWAVHeader(outFile, SAMPLE_RATE, 2, totalSamples);
+	fclose(outFile);
+#else
 	if(!quit)
 		SDL_Delay(2000); // let tails decay on natural end
 
 	SDL_DestroyWindow(window);
 	SDL_CloseAudio();
 	SDL_Quit();
+#endif
+
+	free(tempos.events);
+	free(list.events);
 
 	return 0;
 }
